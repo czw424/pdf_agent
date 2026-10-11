@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识库控制台 · Private RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1c2b2a;
+    --ink-soft:#3d4c4a;
+    --parchment:#f2ede1;
+    --parchment-deep:#e7dfcd;
+    --panel:#263836;
+    --panel-light:#324a47;
+    --amber:#b9803f;
+    --amber-deep:#8f6330;
+    --line:#d8cfb9;
+    --line-dark:#44564f;
+    --good:#5e7d5a;
+    --bad:#a1503f;
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--parchment);
+    color:var(--ink);
+    display:flex;
+    overflow:hidden;
+  }
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0;}
+  button{font-family:inherit;cursor:pointer;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line-dark);border-radius:4px;}
+
+  /* ---------- 侧边栏 ---------- */
+  .sidebar{
+    width:290px;
+    min-width:290px;
+    background:var(--panel);
+    color:#e9e4d6;
+    display:flex;
+    flex-direction:column;
+    padding:22px 18px;
+    gap:22px;
+    overflow-y:auto;
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .brand h1{font-size:20px;color:#f2ede1;line-height:1.2;}
+  .brand span{font-size:12.5px;color:#a9bab5;}
+
+  .section-label{font-size:12.5px;color:#a9bab5;letter-spacing:.01em;margin-bottom:8px;}
+
+  .dropzone{
+    border:1.5px dashed var(--line-dark);
+    border-radius:6px;
+    padding:16px 12px;
+    text-align:center;
+    font-size:13px;
+    color:#c2d1cc;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{border-color:var(--amber);background:rgba(185,128,63,.12);}
+  .dropzone input{display:none;}
+  .dropzone label{color:var(--amber);cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+
+  .doc-log{display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;}
+  .doc-item{
+    font-size:12.5px;background:var(--panel-light);border-radius:5px;padding:7px 9px;
+    display:flex;justify-content:space-between;gap:8px;color:#e6e0d0;
+  }
+  .doc-item small{color:#9fb2ac;}
+  .empty-note{font-size:12.5px;color:#83968f;font-style:italic;}
+
+  .ghost-btn{
+    background:transparent;border:1px solid var(--line-dark);color:#dfe6e0;
+    padding:8px 10px;border-radius:5px;font-size:13px;width:100%;transition:background .15s,border-color .15s;
+  }
+  .ghost-btn:hover{background:var(--panel-light);border-color:var(--amber);}
+  .ghost-btn.danger:hover{border-color:var(--bad);color:#f0b3a6;}
+
+  .session-box{
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .session-id-row{display:flex;gap:6px;align-items:center;}
+  .session-id-row input{
+    flex:1;background:var(--panel-light);border:1px solid var(--line-dark);color:#f2ede1;
+    padding:7px 8px;border-radius:5px;font-size:12.5px;min-width:0;
+  }
+  .icon-btn{
+    background:var(--panel-light);border:1px solid var(--line-dark);color:#e9e4d6;
+    border-radius:5px;padding:7px 9px;font-size:13px;line-height:1;
+  }
+  .icon-btn:hover{border-color:var(--amber);}
+
+  .sidebar-footer{margin-top:auto;display:flex;flex-direction:column;gap:10px;}
+  .health-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#a9bab5;}
+  .dot{width:8px;height:8px;border-radius:50%;background:#7a8a84;flex:none;}
+  .dot.ok{background:var(--good);box-shadow:0 0 0 3px rgba(94,125,90,.25);}
+  .dot.err{background:var(--bad);box-shadow:0 0 0 3px rgba(161,80,63,.25);}
+
+  .api-row{display:flex;gap:6px;}
+  .api-row input{
+    flex:1;background:var(--panel-light);border:1px solid var(--line-dark);color:#f2ede1;
+    padding:7px 8px;border-radius:5px;font-size:12px;min-width:0;
+  }
+
+  /* ---------- 主区域 ---------- */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .topbar{
+    padding:16px 28px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;flex:none;
+  }
+  .topbar h2{font-size:17px;}
+  .topbar .sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .mode-toggle{
+    display:flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  }
+  .mode-toggle button{
+    background:none;border:none;padding:7px 16px;font-size:12.5px;color:var(--ink-soft);
+  }
+  .mode-toggle button.active{background:var(--ink);color:var(--parchment);}
+
+  .messages{
+    flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:18px;
+  }
+  .msg{max-width:640px;line-height:1.6;font-size:14.5px;}
+  .msg.user{align-self:flex-end;background:var(--ink);color:var(--parchment);padding:11px 15px;border-radius:12px 12px 3px 12px;}
+  .msg.assistant{align-self:flex-start;}
+  .msg.assistant .bubble{
+    background:#fff;border:1px solid var(--line);padding:12px 15px;border-radius:3px 12px 12px 12px;
+  }
+  .msg.system{align-self:center;color:var(--ink-soft);font-size:12.5px;font-style:italic;}
+
+  .sources{margin-top:8px;}
+  .sources summary{
+    cursor:pointer;font-size:12.5px;color:var(--amber-deep);list-style:none;display:inline-flex;gap:5px;align-items:center;
+  }
+  .sources summary::-webkit-details-marker{display:none;}
+  .sources summary::before{content:'▸';transition:transform .12s;}
+  .sources[open] summary::before{transform:rotate(90deg);}
+  .source-card{
+    margin-top:8px;background:var(--parchment-deep);border-radius:6px;padding:9px 11px;font-size:12.5px;
+    border-left:3px solid var(--amber);
+  }
+  .source-card + .source-card{margin-top:6px;}
+  .source-card .meta{color:var(--ink-soft);font-size:11.5px;margin-bottom:3px;}
+
+  .empty-state{
+    margin:auto;text-align:center;color:var(--ink-soft);max-width:360px;
+  }
+  .empty-state h3{font-size:19px;color:var(--ink);margin-bottom:8px;}
+  .empty-state p{font-size:13.5px;line-height:1.6;}
+
+  .composer{
+    border-top:1px solid var(--line);padding:16px 28px 20px;flex:none;
+  }
+  .composer-box{
+    display:flex;gap:10px;align-items:flex-end;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:8px 8px 8px 16px;
+  }
+  .composer-box textarea{
+    flex:1;border:none;outline:none;resize:none;font-family:inherit;font-size:14.5px;
+    max-height:140px;line-height:1.5;padding:8px 0;background:transparent;color:var(--ink);
+  }
+  .send-btn{
+    background:var(--ink);color:var(--parchment);border:none;border-radius:9px;
+    padding:10px 18px;font-size:13.5px;flex:none;transition:background .15s;
+  }
+  .send-btn:hover{background:var(--amber-deep);}
+  .send-btn:disabled{background:#b8bcb9;cursor:not-allowed;}
+  .composer-hint{font-size:11.5px;color:var(--ink-soft);margin-top:7px;}
+
+  .toast-stack{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:50;}
+  .toast{
+    background:var(--ink);color:var(--parchment);padding:10px 15px;border-radius:7px;font-size:13px;
+    box-shadow:0 6px 18px rgba(0,0,0,.18);max-width:320px;
+  }
+  .toast.bad{background:var(--bad);}
+  .toast.good{background:var(--good);}
+
+  @media (max-width: 760px){
+    .sidebar{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .2s;z-index:40;}
+    .sidebar.open{transform:translateX(0);}
+    .msg{max-width:88%;}
+  }
+</style>
+</head>
+<body>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <h1>知识库控制台</h1>
+      <span>Qwen2-7B · Qdrant · 混合检索</span>
+    </div>
+
+    <div>
+      <div class="section-label">上传文档</div>
+      <div class="dropzone" id="dropzone">
+        拖拽 PDF 到此处，或 <label for="fileInput">选择文件</label>
+        <input type="file" id="fileInput" accept="application/pdf">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">本次已上传</div>
+      <div class="doc-log" id="docLog">
+        <div class="empty-note">暂无上传记录</div>
+      </div>
+    </div>
+
+    <button class="ghost-btn danger" id="clearKbBtn">清空知识库</button>
+
+    <div class="session-box">
+      <div class="section-label">会话</div>
+      <div class="session-id-row">
+        <input id="sessionIdInput" spellcheck="false">
+        <button class="icon-btn" id="newSessionBtn" title="新建会话">＋</button>
+      </div>
+      <button class="ghost-btn" id="clearSessionBtn">清空当前会话历史</button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="api-row">
+        <input id="apiBaseInput" spellcheck="false">
+      </div>
+      <div class="health-row"><span class="dot" id="healthDot"></span><span id="healthText">检测中…</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h2>私有知识库问答</h2>
+        <div class="sub" id="sessionLabel">会话：default</div>
+      </div>
+      <div class="mode-toggle">
+        <button id="modeStream" class="active">流式</button>
+        <button id="modeStandard">标准</button>
+      </div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="empty-state" id="emptyState">
+        <h3>从一个问题开始</h3>
+        <p>先在左侧上传一份 PDF，再在下方提问。回答只基于检索到的文档内容，找不到相关信息时会明确告知，不会编造。</p>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-box">
+        <textarea id="questionInput" rows="1" placeholder="基于知识库提问…"></textarea>
+        <button class="send-btn" id="sendBtn">发送</button>
+      </div>
+      <div class="composer-hint">Enter 发送，Shift + Enter 换行</div>
+    </div>
+  </main>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+
+  const messagesEl = $('messages');
+  const emptyState = $('emptyState');
+  const questionInput = $('questionInput');
+  const sendBtn = $('sendBtn');
+  const docLog = $('docLog');
+  const dropzone = $('dropzone');
+  const fileInput = $('fileInput');
+  const apiBaseInput = $('apiBaseInput');
+  const sessionIdInput = $('sessionIdInput');
+  const sessionLabel = $('sessionLabel');
+  const healthDot = $('healthDot');
+  const healthText = $('healthText');
+  const modeStreamBtn = $('modeStream');
+  const modeStandardBtn = $('modeStandard');
+  const toastStack = $('toastStack');
+
+  // ---------- 状态（本地持久化，仅浏览器本地保存，不上传任何地方） ----------
+  function safeGet(key, fallback){
+    try { return localStorage.getItem(key) ?? fallback; } catch(e){ return fallback; }
+  }
+  function safeSet(key, value){
+    try { localStorage.setItem(key, value); } catch(e){ /* 忽略 */ }
+  }
+
+  let apiBase = safeGet('rag_api_base', 'http://localhost:8000');
+  let sessionId = safeGet('rag_session_id', 'default');
+  let streamMode = safeGet('rag_stream_mode', '1') === '1';
+
+  apiBaseInput.value = apiBase;
+  sessionIdInput.value = sessionId;
+  sessionLabel.textContent = '会话：' + sessionId;
+  setMode(streamMode, /*persist=*/false);
+
+  function chatKey(){ return 'rag_chat_' + sessionId; }
+  function loadChat(){
+    try { return JSON.parse(safeGet(chatKey(), '[]')); } catch(e){ return []; }
+  }
+  function saveChat(list){ safeSet(chatKey(), JSON.stringify(list)); }
+  let chat = loadChat();
+
+  // ---------- 工具函数 ----------
+  function toast(msg, kind){
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' ' + kind : '');
+    el.textContent = msg;
+    toastStack.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
+  function setMode(isStream, persist){
+    streamMode = isStream;
+    modeStreamBtn.classList.toggle('active', isStream);
+    modeStandardBtn.classList.toggle('active', !isStream);
+    if(persist !== false) safeSet('rag_stream_mode', isStream ? '1' : '0');
+  }
+  modeStreamBtn.onclick = () => setMode(true);
+  modeStandardBtn.onclick = () => setMode(false);
+
+  apiBaseInput.onchange = () => {
+    apiBase = apiBaseInput.value.trim().replace(/\/$/, '');
+    safeSet('rag_api_base', apiBase);
+    checkHealth();
+  };
+
+  sessionIdInput.onchange = () => {
+    sessionId = sessionIdInput.value.trim() || 'default';
+    sessionIdInput.value = sessionId;
+    safeSet('rag_session_id', sessionId);
+    sessionLabel.textContent = '会话：' + sessionId;
+    chat = loadChat();
+    renderAllMessages();
+  };
+
+  $('newSessionBtn').onclick = () => {
+    const id = 'session-' + Math.random().toString(36).slice(2, 8);
+    sessionId = id;
+    sessionIdInput.value = id;
+    safeSet('rag_session_id', id);
+    sessionLabel.textContent = '会话：' + id;
+    chat = [];
+    renderAllMessages();
+    toast('已新建会话 ' + id, 'good');
+  };
+
+  $('clearSessionBtn').onclick = async () => {
+    try {
+      const res = await fetch(`${apiBase}/api/session/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      chat = [];
+      saveChat(chat);
+      renderAllMessages();
+      toast('当前会话历史已清空', 'good');
+    } catch(e){
+      toast('清空会话失败：' + e.message, 'bad');
+    }
+  };
+
+  $('clearKbBtn').onclick = async () => {
+    if(!confirm('确定要清空整个知识库吗？此操作不可恢复。')) return;
+    try {
+      const res = await fetch(`${apiBase}/api/knowledge/clear`, { method: 'DELETE' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      docLog.innerHTML = '<div class="empty-note">暂无上传记录</div>';
+      toast('知识库已清空', 'good');
+    } catch(e){
+      toast('清空知识库失败：' + e.message, 'bad');
+    }
+  };
+
+  // ---------- 健康检查 ----------
+  async function checkHealth(){
+    try {
+      const res = await fetch(`${apiBase}/api/health`, { signal: AbortSignal.timeout(4000) });
+      if(!res.ok) throw new Error();
+      healthDot.className = 'dot ok';
+      healthText.textContent = '服务已连接';
+    } catch(e){
+      healthDot.className = 'dot err';
+      healthText.textContent = '无法连接到后端';
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 15000);
+
+  // ---------- 文档上传 ----------
+  ['dragenter','dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if(file) uploadFile(file);
+  });
+  fileInput.onchange = () => { if(fileInput.files[0]) uploadFile(fileInput.files[0]); fileInput.value = ''; };
+
+  async function uploadFile(file){
+    if(!file.name.toLowerCase().endsWith('.pdf')){
+      toast('仅支持 PDF 文件', 'bad');
+      return;
+    }
+    const rowId = 'doc-' + Date.now();
+    addDocRow(rowId, file.name, '上传中…');
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const res = await fetch(`${apiBase}/api/document/upload`, { method: 'POST', body: form });
+      const body = await res.json();
+      if(!res.ok) throw new Error(body.detail || ('HTTP ' + res.status));
+      const added = body.data.chunk_count || 0;
+      if(added === 0){
+        updateDocRow(rowId, file.name, '内容已存在，跳过');
+        toast(`《${file.name}》与知识库已有内容重复，未重复入库`, 'bad');
+      } else {
+        updateDocRow(rowId, file.name, `${added} 个分片`);
+        toast(`《${file.name}》解析完成`, 'good');
+      }
+    } catch(e){
+      updateDocRow(rowId, file.name, '上传失败');
+      toast('上传失败：' + e.message, 'bad');
+    }
+  }
+
+  function addDocRow(id, name, status){
+    if(docLog.querySelector('.empty-note')) docLog.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'doc-item';
+    row.id = id;
+    row.innerHTML = `<span>${escapeHtml(name)}</span><small>${escapeHtml(status)}</small>`;
+    docLog.prepend(row);
+  }
+  function updateDocRow(id, name, status){
+    const row = $(id) || document.getElementById(id);
+    if(row) row.innerHTML = `<span>${escapeHtml(name)}</span><small>${escapeHtml(status)}</small>`;
+  }
+
+  // ---------- 对话渲染 ----------
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderAllMessages(){
+    messagesEl.innerHTML = '';
+    if(chat.length === 0){
+      messagesEl.appendChild(emptyState);
+      return;
+    }
+    chat.forEach(m => messagesEl.appendChild(buildMessageEl(m)));
+    scrollToBottom();
+  }
+
+  function buildMessageEl(m){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + m.role;
+    if(m.role === 'user'){
+      wrap.textContent = m.content;
+      return wrap;
+    }
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = m.content;
+    wrap.appendChild(bubble);
+
+    if(m.sources && m.sources.length){
+      const details = document.createElement('details');
+      details.className = 'sources';
+      const summary = document.createElement('summary');
+      summary.textContent = `查看引用来源（${m.sources.length}）`;
+      details.appendChild(summary);
+      m.sources.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'source-card';
+        const meta = (s.metadata && (s.metadata.source || s.metadata.page !== undefined))
+          ? `${s.metadata.source || ''}${s.metadata.page !== undefined ? '  ·  第 ' + (s.metadata.page + 1) + ' 页' : ''}`
+          : '来源片段';
+        card.innerHTML = `<div class="meta">${escapeHtml(meta)}</div>${escapeHtml((s.page_content || '').slice(0, 220))}${(s.page_content||'').length > 220 ? '…' : ''}`;
+        details.appendChild(card);
+      });
+      wrap.appendChild(details);
+    }
+    return wrap;
+  }
+
+  function scrollToBottom(){
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function pushMessage(m){
+    chat.push(m);
+    saveChat(chat);
+    if(messagesEl.contains(emptyState)) messagesEl.innerHTML = '';
+    messagesEl.appendChild(buildMessageEl(m));
+    scrollToBottom();
+    return messagesEl.lastElementChild;
+  }
+
+  renderAllMessages();
+
+  // ---------- 发送问题 ----------
+  questionInput.addEventListener('input', () => {
+    questionInput.style.height = 'auto';
+    questionInput.style.height = Math.min(questionInput.scrollHeight, 140) + 'px';
+  });
+  questionInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      handleSend();
+    }
+  });
+  sendBtn.onclick = handleSend;
+
+  async function handleSend(){
+    const question = questionInput.value.trim();
+    if(!question) return;
+    questionInput.value = '';
+    questionInput.style.height = 'auto';
+    sendBtn.disabled = true;
+
+    pushMessage({ role: 'user', content: question });
+
+    try {
+      if(streamMode){
+        await sendStreaming(question);
+      } else {
+        await sendStandard(question);
+      }
+    } catch(e){
+      pushMessage({ role: 'system', content: '请求失败：' + e.message });
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  async function sendStandard(question){
+    const res = await fetch(`${apiBase}/api/rag/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, session_id: sessionId })
+    });
+    const body = await res.json();
+    if(!res.ok) throw new Error(body.detail || ('HTTP ' + res.status));
+    pushMessage({ role: 'assistant', content: body.data.answer, sources: body.data.source_documents });
+  }
+
+  async function sendStreaming(question){
+    const res = await fetch(`${apiBase}/api/rag/query/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, session_id: sessionId })
+    });
+    if(!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+    const el = pushMessage({ role: 'assistant', content: '' });
+    const bubble = el.querySelector('.bubble');
+    let answer = '';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while(true){
+      const { done, value } = await reader.read();
+      if(done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop();
+      for(const evt of events){
+        const line = evt.split('\n').find(l => l.startsWith('data:'));
+        if(!line) continue;
+        let payload;
+        try { payload = JSON.parse(line.slice(5).trim()); } catch(e){ continue; }
+        if(payload.type === 'token'){
+          answer += payload.content;
+          bubble.textContent = answer;
+          scrollToBottom();
+        } else if(payload.type === 'error'){
+          throw new Error(payload.content);
+        }
+      }
+    }
+
+    chat[chat.length - 1].content = answer;
+    saveChat(chat);
+  }
+})();
+</script>
+</body>
+</html>

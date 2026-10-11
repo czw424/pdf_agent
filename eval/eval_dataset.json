@@ -1,0 +1,12 @@
+[
+  {
+    "question": "示例问题：请替换成你真实知识库文档里的问题",
+    "expected_keywords": ["示例关键词1", "示例关键词2"],
+    "reference_answer": "示例问题对应的标准答案，用于人工比对（可选字段）"
+  },
+  {
+    "question": "示例问题2：请替换",
+    "expected_keywords": ["关键词A"],
+    "reference_answer": ""
+  }
+]
